@@ -3,1051 +3,598 @@
 
 ## 1. Notebook Overview
 
-### Learning Goals
-Upon completing this notebook, Financial Data Engineers will be able to:
-1.  Understand the theoretical foundations and practical applications of Variational Autoencoders (VAEs) and Generative Adversarial Networks (GANs) for synthetic financial data generation.
-2.  Implement VAE and GAN architectures using a deep learning framework.
-3.  Train VAE and GAN models on anonymized financial datasets, monitoring key training metrics like loss curves.
-4.  Generate synthetic financial data from trained VAE and GAN models.
-5.  Perform comparative statistical analysis between real and synthetic financial data, evaluating quality and fidelity.
-6.  Explore the impact of adjusting latent variables or input noise on synthetic data generation to simulate various financial scenarios.
-7.  Appreciate the financial applications of synthetic data, including privacy preservation, stress-testing, and market scenario simulation.
+**Learning Goals:**
+This notebook aims to equip Financial Data Engineers with the practical skills and theoretical understanding required to implement and compare Variational Autoencoders (VAEs) and Generative Adversarial Networks (GANs) for generating synthetic financial data. Upon completing this lab, users will be able to:
+*   Understand the theoretical foundations of VAEs and GANs, including their core components and operational principles.
+*   Implement a VAE model, defining its encoder, decoder, and a comprehensive loss function that balances reconstruction error and regularization.
+*   Implement a GAN model, comprising a Generator and a Discriminator, and manage its game-theoretic training loop.
+*   Execute and observe a simplified training process for both VAE and GAN architectures, tracking key performance metrics.
+*   Generate new synthetic financial data using trained VAE and GAN models.
+*   Perform comparative analysis of statistical properties (mean, variance, distribution shape) and time series characteristics between real and synthetic data.
+*   Explore the impact of adjusting latent variables on synthetic data generation, particularly for VAEs.
+*   Grasp the utility of VAEs and GANs in financial applications such as privacy-preserving data sharing, stress-testing financial models, and market scenario simulation.
 
-### Who the Notebook is Targeted To
-This notebook is designed for **Financial Data Engineers** who are looking to:
-*   Enhance their understanding of advanced deep learning techniques (VAEs and GANs) for synthetic data generation.
-*   Acquire practical skills in implementing, training, and evaluating generative models in a financial context.
-*   Explore methods for creating privacy-preserving and robust datasets for model development and validation.
-*   Visually and statistically analyze the fidelity of generated synthetic financial data.
+**Target Audience:**
+The notebook is specifically targeted at **Financial Data Engineers**. This persona is expected to have a foundational understanding of machine learning concepts, neural networks, and financial data characteristics. The content will balance theoretical explanations with practical implementation details, focusing on relevance to financial applications.
 
 ## 2. Code Requirements
 
 ### List of Expected Libraries
-*   `numpy`: For numerical operations and synthetic data generation.
-*   `pandas`: For data manipulation and tabular data handling.
-*   `matplotlib.pyplot`: For basic plotting and visualization.
+
+*   `numpy`: For numerical operations and data generation.
+*   `pandas`: For data manipulation and structuring.
+*   `torch`: The primary deep learning framework for building VAE and GAN models.
+*   `torch.nn`: For defining neural network layers.
+*   `torch.optim`: For optimization algorithms (e.g., Adam).
+*   `torch.utils.data`: For creating DataLoaders.
+*   `matplotlib.pyplot`: For generating static plots and visualizations.
 *   `seaborn`: For enhanced statistical data visualization.
-*   `sklearn.preprocessing.MinMaxScaler`: For data scaling.
-*   `tensorflow`: For building and training deep learning models (VAEs and GANs). Specifically, `tensorflow.keras` will be utilized for its high-level API.
-*   `scipy.stats.gaussian_kde`: For Kernel Density Estimation plots in distribution comparisons.
+*   `scipy.stats`: For statistical tests, such as the Kolmogorov-Smirnov test.
+*   `sklearn.preprocessing`: For data scaling and normalization (e.g., `MinMaxScaler`, `StandardScaler`).
+*   `sklearn.manifold`: Potentially for dimensionality reduction for latent space visualization (e.g., `TSNE`).
+*   `sklearn.decomposition`: Potentially for dimensionality reduction for latent space visualization (e.g., `PCA`).
 
-### List of Algorithms or Functions to be Implemented
-*   `generate_synthetic_financial_data(num_samples, random_seed)`: Creates a synthetic tabular financial dataset with specified features and plausible statistical distributions.
-*   `load_financial_data(dataframe)`: A placeholder function to "load" the pre-generated synthetic financial data, mimicking real-world data import.
-*   `preprocess_data(dataframe)`: Scales numerical features of the input DataFrame using `MinMaxScaler`, returning the scaled data and the fitted scaler object.
-*   `build_vae(input_dim, latent_dim, hidden_dim_encoder, hidden_dim_decoder)`: Constructs the VAE Encoder, Decoder, and the full VAE model (using TensorFlow Keras subclassing or functional API), encapsulating the reparameterization trick.
-*   `train_vae_model(vae_model, train_data, epochs, batch_size, learning_rate)`: Compiles the VAE model with a custom VAE loss function (combining reconstruction and KL divergence) and an Adam optimizer, then trains it on the provided data, returning the training history.
-*   `plot_vae_loss(history)`: Generates a line plot showing VAE reconstruction loss, KL divergence loss, and total VAE loss over training epochs.
-*   `generate_vae_synthetic_data(decoder_model, num_samples, latent_dim, scaler)`: Generates synthetic data by sampling from a standard normal distribution, passing through the VAE decoder, and inverse-transforming the output using the provided `MinMaxScaler`.
-*   `build_gan(input_dim, latent_dim, hidden_dim_generator, hidden_dim_discriminator)`: Constructs the GAN Generator, Discriminator, and the combined GAN model (for generator training), using TensorFlow Keras.
-*   `train_gan_model(generator, discriminator, gan_model, train_data, epochs, batch_size, latent_dim, learning_rate)`: Implements the adversarial training loop for the GAN, alternating between training the Discriminator and the Generator, returning a history of their respective losses.
-*   `plot_gan_loss(history)`: Generates a line plot showing Generator loss and Discriminator loss over training epochs.
-*   `generate_gan_synthetic_data(generator_model, num_samples, latent_dim, scaler)`: Generates synthetic data by sampling random noise, passing it through the trained GAN generator, and inverse-transforming the output.
-*   `compare_statistics(real_data, synthetic_data_vae, synthetic_data_gan)`: Computes and displays comprehensive descriptive statistics (mean, std dev, min, max, quartiles) for all features across real, VAE synthetic, and GAN synthetic datasets.
-*   `compare_distributions(real_data, synthetic_data_vae, synthetic_data_gan, feature_names)`: Generates overlaid histogram and Kernel Density Estimate (KDE) plots for each financial feature, allowing visual comparison of distributions between real and synthetic data.
-*   `plot_time_series_comparison(real_data, synthetic_data_vae, synthetic_data_gan, feature_name, num_samples_to_plot)`: Generates line plots of selected features over a sample index (treating synthetic samples as a sequence) to qualitatively compare visual patterns between real and synthetic data.
-*   `explore_vae_latent_space(decoder_model, latent_dim, scaler, original_data_stats, num_variations, feature_to_vary)`: Generates and analyzes variations in synthetic data by incrementally perturbing a specific dimension of the VAE's latent vector.
-*   `explore_gan_noise_variation(generator_model, latent_dim, scaler, original_data_stats, num_variations, noise_factor_range)`: Generates and analyzes variations in synthetic data by scaling the GAN's input noise vector by different factors.
+### List of Algorithms or Functions to be Implemented (without code)
 
-### Visualization Like Charts, Tables, Plots That Should Be Generated
-*   **Data Inspection Tables**: `pandas.DataFrame.head()` and `pandas.DataFrame.describe()` outputs for original and scaled financial data.
-*   **VAE Training Loss Plot**: A multi-line plot displaying VAE reconstruction loss, KL divergence loss, and total VAE loss against training epochs.
-*   **GAN Training Loss Plot**: A multi-line plot displaying Generator loss and Discriminator loss against training epochs.
-*   **Feature Distribution Comparison Plots**: For each financial feature, an overlaid plot featuring histograms and Kernel Density Estimates (KDEs) of the real data, VAE synthetic data, and GAN synthetic data.
-*   **Statistical Summary Tables**: Consolidated tables comparing descriptive statistics (e.g., mean, standard deviation, min, max, quartiles) for each feature across the real, VAE synthetic, and GAN synthetic datasets.
-*   **Time Series-like Plots**: Line plots for selected features (e.g., `Daily_Return`, `Volatility`) showing the first `N` real data points and `N` generated synthetic data points (treating sample index as a pseudo-time axis for synthetic data) for visual pattern comparison.
-*   **Latent Space/Noise Variation Plots**: Visual representations (e.g., line plots of feature means or distributions) illustrating how adjustments to VAE latent vectors or GAN input noise impact the generated synthetic data's characteristics.
+*   `generate_mock_financial_time_series_data`: Function to create a synthetic financial dataset simulating stock prices or interest rates.
+*   `preprocess_financial_data`: Function to apply scaling (e.g., Min-Max scaling) to the input financial time series data and reshape for sequence models.
+*   `build_vae_encoder`: Function to define the architecture of the VAE encoder using `torch.nn.Module`, typically consisting of linear layers or recurrent layers (e.g., GRU/LSTM) followed by linear layers to output mean and log-variance for the latent space.
+*   `build_vae_decoder`: Function to define the architecture of the VAE decoder using `torch.nn.Module`, typically consisting of linear layers or recurrent layers to reconstruct the input data from a latent space sample.
+*   `reparameterize`: Function implementing the reparameterization trick for VAEs, sampling from $N(\mu, \sigma^2)$ using $z = \mu + \sigma \cdot \epsilon$.
+*   `vae_loss_function`: Function to calculate the VAE loss, which is a combination of reconstruction loss (e.g., Mean Squared Error) and KL divergence loss.
+*   `train_vae_epoch`: Function to perform one epoch of VAE training, including forward pass, loss calculation, backward pass, and optimizer step.
+*   `train_vae_model`: Orchestrates the VAE training over multiple epochs, calls `train_vae_epoch`, and collects loss history.
+*   `generate_synthetic_data_vae`: Function to generate synthetic data by sampling from the VAE's latent space and passing it through the decoder.
+*   `build_gan_generator`: Function to define the architecture of the GAN generator using `torch.nn.Module`, taking random noise as input and producing synthetic data.
+*   `build_gan_discriminator`: Function to define the architecture of the GAN discriminator using `torch.nn.Module`, taking data (real or synthetic) as input and outputting a probability of it being real.
+*   `gan_generator_loss`: Function to calculate the loss for the GAN generator (e.g., binary cross-entropy aiming for the discriminator to classify fake data as real).
+*   `gan_discriminator_loss`: Function to calculate the loss for the GAN discriminator (e.g., binary cross-entropy distinguishing real from fake data).
+*   `train_gan_epoch`: Function to perform one epoch of GAN training, including discriminator and generator steps.
+*   `train_gan_model`: Orchestrates the GAN training over multiple epochs, calls `train_gan_epoch`, and collects loss history.
+*   `generate_synthetic_data_gan`: Function to generate synthetic data by sampling random noise and passing it through the trained GAN generator.
+*   `plot_loss_curves`: Function to plot the training loss curves for VAE (reconstruction, KL divergence) and GAN (generator, discriminator).
+*   `plot_feature_distributions`: Function to visualize the distribution of selected features (e.g., using histograms or KDE plots) for real and synthetic data.
+*   `plot_synthetic_and_real_time_series`: Function to plot a selection of real and synthetic time series side-by-side for visual comparison.
+*   `calculate_statistical_metrics`: Function to compute and display descriptive statistics (mean, standard deviation) for real and synthetic data features.
+*   `perform_kolmogorov_smirnov_test`: Function to perform the Kolmogorov-Smirnov (K-S) test to quantitatively compare the distributions of real and synthetic data features.
+*   `generate_with_adjusted_latent`: Function to generate synthetic data by perturbing specific dimensions of the VAE's latent space and passing it through the decoder.
+*   `visualize_latent_space`: (Optional) Function to apply dimensionality reduction (e.g., t-SNE or PCA) to the VAE's latent space and plot the results.
+
+### Visualization Requirements
+
+1.  **VAE Training Loss Curves:** A line plot showing VAE reconstruction loss and KL divergence loss over training epochs.
+2.  **GAN Training Loss Curves:** A line plot showing GAN generator loss and discriminator loss over training epochs.
+3.  **Data Distribution Comparison (Histograms/KDEs):** Multiple plots (e.g., a grid of subplots) displaying histograms or Kernel Density Estimates (KDEs) for 2-3 key features of the original real dataset, VAE-generated synthetic data, and GAN-generated synthetic data. These should be overlaid or presented side-by-side for easy comparison.
+4.  **Time Series Plots:** Multiple line plots, each comparing a sample real time series with a corresponding VAE-generated and GAN-generated synthetic time series. These plots should illustrate the temporal dynamics and realism of the generated data.
+5.  **Latent Space Exploration (Optional for VAE):** A 2D scatter plot (if applicable, using t-SNE or PCA for reduction) of the VAE's latent space, potentially colored by some inferred characteristic or simply showing the distribution of latent vectors.
+6.  **Adjusted Latent Variable Plots (for VAE):** Line plots showing multiple synthetic time series generated by systematically varying one or two dimensions of the VAE's latent space, demonstrating the model's generative control.
 
 ## 3. Notebook Sections (in detail)
 
-### Section 1: Introduction to Synthetic Financial Data Generation
-
-*   **Markdown Cell:**
-    ```markdown
-    # SynthFin Data Generator: VAEs & GANs for Financial Data Synthesis
-
-    Welcome to the SynthFin Data Generator notebook! In the dynamic world of finance, data is paramount, but often comes with constraints like privacy concerns, limited availability, or the need to simulate extreme, rare events. **Synthetic data generation** addresses these challenges by creating artificial datasets that mimic the statistical properties of real data without exposing sensitive information.
-
-    This notebook explores two advanced deep learning techniques for synthetic data generation: **Variational Autoencoders (VAEs)** and **Generative Adversarial Networks (GANs)**. As Financial Data Engineers, understanding and applying these models is crucial for tasks such as:
-    *   **Privacy-preserving data sharing:** Creating anonymized datasets for collaboration or external research.
-    *   **Stress-testing financial models:** Generating data for scenarios not observed in historical records.
-    *   **Simulating complex market scenarios:** Exploring various market conditions to test strategies or risk management.
-    *   **Augmenting scarce datasets:** Expanding limited real datasets for more robust model training.
-
-    We will dive into the theoretical underpinnings of VAEs and GANs, implement their architectures, train them on a simulated financial dataset, generate synthetic data, and rigorously compare the statistical properties of the generated data against the real data.
-    ```
-
-### Section 2: Setting Up the Environment and Generating Financial Data
-
-*   **Markdown Cell:**
-    ```markdown
-    To begin, we set up our Python environment by importing the necessary libraries. For this notebook, we will use a synthetically generated financial dataset to ensure reproducibility and focus on the generative models. This dataset simulates anonymized daily financial features, reflecting the kind of small, tabular data often encountered by Financial Data Engineers.
-
-    Our synthetic dataset will consist of `num_samples` rows, each representing a daily observation, and five features:
-    *   `Daily_Return`: Simulates daily percentage change in an asset price.
-    *   `Volatility`: Simulates rolling volatility of an asset price.
-    *   `Volume_Change`: Simulates daily percentage change in trading volume.
-    *   `Interest_Rate_Change`: Simulates daily change in a relevant interest rate.
-    *   `Market_Sentiment_Score`: Simulates a daily sentiment score (e.g., derived from news or social media).
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def generate_synthetic_financial_data(num_samples, random_seed=42):
-        """
-        Generates a synthetic tabular financial dataset with specified features.
-
-        Args:
-            num_samples (int): The number of samples (rows) to generate.
-            random_seed (int): Seed for random number generation for reproducibility.
-
-        Returns:
-            pandas.DataFrame: A DataFrame containing the synthetic financial data.
-        """
-        np.random.seed(random_seed)
-        
-        # Generate Daily_Return: Centered around a small positive mean, slightly skewed
-        daily_return = np.random.normal(loc=0.0005, scale=0.015, size=num_samples)
-        
-        # Generate Volatility: Positive, typically low values, some higher spikes
-        # Using a log-normal distribution for positive, right-skewed values
-        volatility = np.exp(np.random.normal(loc=-3.0, scale=0.8, size=num_samples))
-        volatility = np.clip(volatility, 0.001, 0.1) # Ensure within plausible financial range
-
-        # Generate Volume_Change: Centered around zero with some fluctuations
-        volume_change = np.random.normal(loc=0.0, scale=0.1, size=num_samples)
-        
-        # Generate Interest_Rate_Change: Small changes around zero
-        interest_rate_change = np.random.normal(loc=0.0, scale=0.001, size=num_samples)
-        
-        # Generate Market_Sentiment_Score: Bounded between -1 and 1
-        market_sentiment_score = np.random.uniform(low=-0.8, high=0.8, size=num_samples)
-        
-        data = {
-            'Daily_Return': daily_return,
-            'Volatility': volatility,
-            'Volume_Change': volume_change,
-            'Interest_Rate_Change': interest_rate_change,
-            'Market_Sentiment_Score': market_sentiment_score
-        }
-        
-        return pd.DataFrame(data)
-
-    def load_financial_data(dataframe):
-        """
-        Simulates loading financial data. In this notebook, it returns the pre-generated DataFrame.
-
-        Args:
-            dataframe (pandas.DataFrame): The pre-generated DataFrame to "load".
-
-        Returns:
-            pandas.DataFrame: The input DataFrame.
-        """
-        return dataframe
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    import numpy as np
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    from sklearn.preprocessing import MinMaxScaler
-    import tensorflow as tf
-    from scipy.stats import gaussian_kde
-
-    # Set random seeds for reproducibility
-    np.random.seed(42)
-    tf.random.set_seed(42)
-
-    # Generate 1000 samples of synthetic financial data
-    num_samples = 1000
-    financial_df_raw = generate_synthetic_financial_data(num_samples)
-
-    # Load the generated data (simulating loading from a file)
-    financial_data = load_financial_data(financial_df_raw)
-
-    print("First 5 rows of the raw financial dataset:")
-    print(financial_data.head())
-
-    print("\nDescriptive statistics of the raw financial dataset:")
-    print(financial_data.describe())
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The synthetic financial dataset has been successfully generated and "loaded". We can observe the structure of the data and its basic statistical properties. Each row represents a daily observation, and the columns represent different financial indicators. These features are designed to mimic real-world financial data characteristics, such as `Daily_Return` often hovering around zero with varying `Volatility`, and `Market_Sentiment_Score` bounded within a specific range. The `describe()` output provides initial insights into the mean, standard deviation, and range of each feature, which are important benchmarks for evaluating our synthetic data later.
-    ```
-
-### Section 3: Data Preprocessing and Feature Scaling
-
-*   **Markdown Cell:**
-    ```markdown
-    Before feeding data into neural networks like VAEs and GANs, it's crucial to preprocess it. Neural networks are sensitive to the scale and distribution of input data. **Feature scaling** helps stabilize training and improves model performance. Here, we'll apply `MinMaxScaler`, which transforms features by scaling each feature to a given range, typically $ [0, 1] $. This is particularly suitable for generative models whose output activations (like `sigmoid`) naturally produce values in this range.
-
-    The scaling transformation for a feature $ X $ is defined as:
-    $$ X_{scaled} = \frac{X - X_{min}}{X_{max} - X_{min}} $$
-    where $ X_{min} $ is the minimum value of the feature in the training data, and $ X_{max} $ is the maximum value. It is critical to store the `MinMaxScaler` instance used during training to **inverse transform** the generated synthetic data back to its original scale for meaningful interpretation.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def preprocess_data(dataframe):
-        """
-        Preprocesses the data by applying MinMaxScaler to all numerical columns.
-
-        Args:
-            dataframe (pandas.DataFrame): The input DataFrame to scale.
-
-        Returns:
-            tuple: A tuple containing:
-                - pandas.DataFrame: The scaled DataFrame.
-                - sklearn.preprocessing.MinMaxScaler: The fitted scaler object.
-        """
-        scaler = MinMaxScaler()
-        scaled_data_array = scaler.fit_transform(dataframe)
-        scaled_dataframe = pd.DataFrame(scaled_data_array, columns=dataframe.columns)
-        return scaled_dataframe, scaler
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Preprocess the financial data
-    scaled_financial_data, scaler = preprocess_data(financial_data)
-
-    print("First 5 rows of the scaled financial dataset:")
-    print(scaled_financial_data.head())
-
-    print("\nDescriptive statistics of the scaled financial dataset:")
-    print(scaled_financial_data.describe())
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The financial data has now been successfully scaled to the $ [0, 1] $ range. Observing the descriptive statistics, all features now fall within this interval, with minimums at 0 and maximums at 1, as expected. This standardized input is critical for the stable and efficient training of our deep learning models. The `scaler` object is saved, which will be essential later for converting the generated synthetic data back to its original financial units, making it interpretable.
-    ```
-
-### Section 4: Introduction to Variational Autoencoders (VAEs)
-
-*   **Markdown Cell:**
-    ```markdown
-    **Variational Autoencoders (VAEs)** are a powerful class of generative models that combine deep learning with Bayesian inference. Unlike traditional Autoencoders (AEs) which learn a deterministic latent representation, VAEs learn a *probability distribution* over the latent space. This probabilistic approach is key to their generative capabilities.
-
-    A VAE consists of two main parts:
-    1.  **Encoder ($ q_{\phi}(\mathbf{z}|\mathbf{x}) $):** This neural network takes an input data point $ \mathbf{x} $ and outputs the parameters (mean $ \mu $ and log-variance $ \log \sigma^2 $) of a conditional probability distribution, typically a Gaussian, in the latent space. That is, $ q_{\phi}(\mathbf{z}|\mathbf{x}) = \mathcal{N}(\mathbf{z}; \mu(\mathbf{x}), \sigma^2(\mathbf{x})) $.
-    2.  **Decoder ($ p_{\theta}(\mathbf{x}|\mathbf{z}) $):** This neural network takes a sample $ \mathbf{z} $ from the latent distribution and reconstructs the input data $ \mathbf{x} $.
-
-    To make the sampling process from the latent distribution differentiable (required for backpropagation), VAEs employ the **reparameterization trick**. Instead of directly sampling $ \mathbf{z} \sim \mathcal{N}(\mu, \sigma^2) $, we sample a random noise vector $ \epsilon \sim \mathcal{N}(0, \mathbf{I}) $ and compute the latent variable as:
-    $$ \mathbf{z} = \mu + \sigma \odot \epsilon $$
-    where $ \odot $ denotes element-wise multiplication.
-
-    The VAE is trained to optimize a **loss function** that balances two objectives:
-    *   **Reconstruction Loss:** Measures how well the decoder reconstructs the original input data. This is typically the Mean Squared Error (MSE) for continuous data: $ -E_{q_{\phi}(\mathbf{z}|\mathbf{x})}[\log p_{\theta}(\mathbf{x}|\mathbf{z})] \approx \text{MSE}(\mathbf{x}, \text{decoder}(\mathbf{z})) $.
-    *   **KL Divergence Loss:** A regularization term that measures the difference between the learned latent distribution $ q_{\phi}(\mathbf{z}|\mathbf{x}) $ and a predefined prior distribution $ p(\mathbf{z}) $, usually a standard normal distribution $ \mathcal{N}(0, \mathbf{I}) $. This term encourages the latent space to be well-structured and continuous, allowing for smooth data generation. For Gaussian latent space and a standard Gaussian prior, the KL divergence has a closed-form solution:
-        $$ D_{KL}(q_{\phi}(\mathbf{z}|\mathbf{x}) || p(\mathbf{z})) = 0.5 \sum_{i=1}^{latent\_dim} (\exp(\log \sigma_i^2) + \mu_i^2 - 1 - \log \sigma_i^2) $$
-    The total VAE loss is the sum of these two components:
-    $$ \mathcal{L}(\theta, \phi; \mathbf{x}) = \underbrace{-E_{q_{\phi}(\mathbf{z}|\mathbf{x})}[\log p_{\theta}(\mathbf{x}|\mathbf{z})]}_{\text{Reconstruction Loss}} + \underbrace{D_{KL}(q_{\phi}(\mathbf{z}|\mathbf{x}) || p(\mathbf{z}))}_{\text{KL Divergence Loss}} $$
-    By minimizing this loss, VAEs learn to encode data into a meaningful latent space from which realistic and diverse synthetic samples can be generated.
-    ```
-
-### Section 5: Defining the VAE Architecture
-
-*   **Markdown Cell:**
-    ```markdown
-    We will now define the architecture for our VAE using TensorFlow Keras. The VAE will consist of an Encoder network that maps the input financial data to parameters of a Gaussian distribution in a lower-dimensional latent space, and a Decoder network that samples from this latent space to reconstruct the financial data.
-
-    For our VAE, we'll use `tf.keras.layers.Dense` layers (fully connected layers) with `relu` activation functions for the intermediate layers, providing non-linearity. The final layer of the decoder will use a `sigmoid` activation to ensure the output data is scaled between $ [0, 1] $, consistent with our preprocessed input data.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    class Encoder(tf.keras.layers.Layer):
-        def __init__(self, latent_dim, hidden_dim, name="encoder", **kwargs):
-            super().__init__(name=name, **kwargs)
-            self.dense_proj = tf.keras.layers.Dense(hidden_dim, activation="relu")
-            self.dense_mean = tf.keras.layers.Dense(latent_dim)
-            self.dense_log_var = tf.keras.layers.Dense(latent_dim)
-
-        def call(self, inputs):
-            x = self.dense_proj(inputs)
-            mean = self.dense_mean(x)
-            log_var = self.dense_log_var(x)
-            return mean, log_var
-
-    class Decoder(tf.keras.layers.Layer):
-        def __init__(self, original_dim, hidden_dim, name="decoder", **kwargs):
-            super().__init__(name=name, **kwargs)
-            self.dense_proj = tf.keras.layers.Dense(hidden_dim, activation="relu")
-            self.dense_output = tf.keras.layers.Dense(original_dim, activation="sigmoid")
-
-        def call(self, inputs):
-            x = self.dense_proj(inputs)
-            return self.dense_output(x)
-
-    class VAE(tf.keras.Model):
-        def __init__(self, original_dim, latent_dim, hidden_dim, name="vae", **kwargs):
-            super().__init__(name=name, **kwargs)
-            self.encoder = Encoder(latent_dim=latent_dim, hidden_dim=hidden_dim)
-            self.decoder = Decoder(original_dim=original_dim, hidden_dim=hidden_dim)
-            self.original_dim = original_dim
-            self.latent_dim = latent_dim
-            self.total_loss_tracker = tf.keras.metrics.Mean(name="total_loss")
-            self.reconstruction_loss_tracker = tf.keras.metrics.Mean(name="reconstruction_loss")
-            self.kl_loss_tracker = tf.keras.metrics.Mean(name="kl_loss")
-
-        @property
-        def metrics(self):
-            return [self.total_loss_tracker, self.reconstruction_loss_tracker, self.kl_loss_tracker]
-
-        def call(self, inputs):
-            mean, log_var = self.encoder(inputs)
-            # Reparameterization trick
-            batch = tf.shape(mean)[0]
-            dim = tf.shape(mean)[1]
-            epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
-            z = mean + tf.exp(0.5 * log_var) * epsilon
-            return self.decoder(z), mean, log_var
-
-        def train_step(self, data):
-            with tf.GradientTape() as tape:
-                reconstructed, mean, log_var = self(data)
-                
-                # Reconstruction loss (MSE)
-                reconstruction_loss = tf.reduce_mean(
-                    tf.reduce_sum(tf.keras.losses.binary_crossentropy(data, reconstructed), axis=1)
-                ) # Using binary_crossentropy for [0,1] scaled data
-
-                # KL Divergence loss
-                kl_loss = -0.5 * (1 + log_var - tf.square(mean) - tf.exp(log_var))
-                kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1))
-                
-                total_loss = reconstruction_loss + kl_loss
-
-            grads = tape.gradient(total_loss, self.trainable_weights)
-            self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
-            self.total_loss_tracker.update_state(total_loss)
-            self.reconstruction_loss_tracker.update_state(reconstruction_loss)
-            self.kl_loss_tracker.update_state(kl_loss)
-            return {
-                "total_loss": self.total_loss_tracker.result(),
-                "reconstruction_loss": self.reconstruction_loss_tracker.result(),
-                "kl_loss": self.kl_loss_tracker.result(),
-            }
-
-    def build_vae(input_dim, latent_dim, hidden_dim_encoder=64, hidden_dim_decoder=64):
-        """
-        Builds and returns the VAE, Encoder, and Decoder models.
-
-        Args:
-            input_dim (int): Dimensionality of the input data.
-            latent_dim (int): Dimensionality of the latent space.
-            hidden_dim_encoder (int): Number of units in the encoder's hidden layer.
-            hidden_dim_decoder (int): Number of units in the decoder's hidden layer.
-
-        Returns:
-            tuple: (VAE model, Encoder model, Decoder model).
-        """
-        vae_model = VAE(original_dim=input_dim, latent_dim=latent_dim, hidden_dim=hidden_dim_encoder)
-        return vae_model, vae_model.encoder, vae_model.decoder
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Define model parameters
-    input_dim = scaled_financial_data.shape[1]
-    latent_dim = 2 # A small latent dimension for easier visualization later
-    hidden_dim = 64
-
-    # Build the VAE model
-    vae, encoder, decoder = build_vae(input_dim, latent_dim, hidden_dim)
-
-    # Build the VAE by calling it once to create its weights
-    dummy_input = tf.random.normal(shape=(1, input_dim))
-    vae(dummy_input)
-
-    print("VAE Model Summary:")
-    vae.summary()
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The VAE architecture has been defined using Keras subclassing. We chose a `latent_dim` of 2 for simplicity, which allows us to potentially visualize the latent space later. The `Encoder` effectively compresses our financial features into a mean and log-variance vector, defining a Gaussian distribution in the latent space. The `Decoder` then expands a sample from this latent space back into the original feature dimension. The `sigmoid` activation on the decoder's output ensures that the generated data remains within the $ [0, 1] $ range, mirroring our scaled input. The `VAE` class itself incorporates the reparameterization trick and defines the custom `train_step` to handle both reconstruction and KL divergence losses.
-    ```
-
-### Section 6: Training the VAE Model
-
-*   **Markdown Cell:**
-    ```markdown
-    Training the VAE involves minimizing the combined reconstruction and KL divergence loss. We will use the `Adam` optimizer, a popular choice for deep learning models due to its efficiency and adaptive learning rate capabilities. The training process will iterate over the dataset for a specified number of epochs, with data batched for computational efficiency. The `train_step` method within our `VAE` class handles the forward pass, loss calculation, and backpropagation for each batch.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def train_vae_model(vae_model, train_data, epochs=50, batch_size=32, learning_rate=0.001):
-        """
-        Compiles and trains the VAE model.
-
-        Args:
-            vae_model (tf.keras.Model): The VAE model instance.
-            train_data (np.array): The training data (scaled).
-            epochs (int): Number of training epochs.
-            batch_size (int): Batch size for training.
-            learning_rate (float): Learning rate for the Adam optimizer.
-
-        Returns:
-            tf.keras.callbacks.History: The training history object.
-        """
-        vae_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate))
-        history = vae_model.fit(train_data, epochs=epochs, batch_size=batch_size, verbose=0)
-        return history
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Train the VAE model
-    epochs = 100
-    batch_size = 32
-    learning_rate = 0.001
-
-    print(f"Training VAE for {epochs} epochs with batch size {batch_size} and learning rate {learning_rate}...")
-    vae_history = train_vae_model(vae, scaled_financial_data.values, epochs, batch_size, learning_rate)
-    print("VAE training complete.")
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The VAE model has been trained on our scaled financial data. During training, the model iteratively adjusted its parameters to both accurately reconstruct the input data and ensure its latent space follows a standard normal distribution. The `vae_history` object contains the loss values recorded at each epoch, which we will visualize next to understand the training progression. These loss metrics are crucial indicators of how well the VAE is learning to capture the underlying data distribution.
-    ```
-
-### Section 7: Visualizing VAE Training Progress
-
-*   **Markdown Cell:**
-    ```markdown
-    Visualizing the training losses is essential for monitoring the learning process of the VAE. We expect the reconstruction loss to decrease, indicating the decoder is getting better at reproducing the input. Simultaneously, the KL divergence loss should also decrease or stabilize, showing that the encoder is learning a latent distribution that closely approximates the prior. The total VAE loss, being the sum, should generally trend downwards, indicating overall model improvement.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def plot_vae_loss(history):
-        """
-        Plots the VAE reconstruction loss, KL divergence loss, and total VAE loss over epochs.
-
-        Args:
-            history (tf.keras.callbacks.History): The history object returned from VAE training.
-        """
-        plt.figure(figsize=(10, 6))
-        plt.plot(history.history['reconstruction_loss'], label='Reconstruction Loss')
-        plt.plot(history.history['kl_loss'], label='KL Divergence Loss')
-        plt.plot(history.history['total_loss'], label='Total VAE Loss')
-        plt.title('VAE Training Loss Over Epochs')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.grid(True)
-        plt.show()
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Plot the VAE training losses
-    plot_vae_loss(vae_history)
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The plot shows the progression of the VAE's reconstruction, KL divergence, and total losses over epochs. A consistent decrease in all loss components indicates that the VAE is learning effectively: the reconstruction loss is minimizing the error between original and reconstructed data, while the KL divergence is ensuring a well-structured and easily samplable latent space. This confirms that our VAE has learned a meaningful representation of the financial data and is ready to generate synthetic samples.
-    ```
-
-### Section 8: Generating Synthetic Data with VAE
-
-*   **Markdown Cell:**
-    ```markdown
-    With a trained VAE, we can now generate new synthetic financial data. This process leverages the generative power of the VAE's decoder. By sampling random points from the standard normal distribution (which our encoder was encouraged to approximate for the latent space prior) and feeding these samples into the decoder, we can create novel data points that share the statistical characteristics of our original dataset. Importantly, we then apply the inverse transformation using the `MinMaxScaler` to bring the synthetic data back to its original interpretable scale.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def generate_vae_synthetic_data(decoder_model, num_samples, latent_dim, scaler, feature_names):
-        """
-        Generates synthetic data using the VAE decoder.
-
-        Args:
-            decoder_model (tf.keras.Model): The trained VAE decoder model.
-            num_samples (int): The number of synthetic samples to generate.
-            latent_dim (int): The dimensionality of the latent space.
-            scaler (sklearn.preprocessing.MinMaxScaler): The scaler used for inverse transformation.
-            feature_names (list): List of original feature names.
-
-        Returns:
-            pandas.DataFrame: A DataFrame containing the inverse-transformed synthetic data.
-        """
-        # Generate random samples from a standard normal distribution for the latent vectors
-        random_latent_vectors = tf.random.normal(shape=(num_samples, latent_dim))
-        
-        # Pass these latent vectors through the decoder model
-        generated_scaled_data = decoder_model.predict(random_latent_vectors, verbose=0)
-        
-        # Inverse transform the generated data to the original scale
-        synthetic_data_array = scaler.inverse_transform(generated_scaled_data)
-        
-        return pd.DataFrame(synthetic_data_array, columns=feature_names)
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Generate 1000 synthetic samples using the VAE
-    vae_synthetic_data = generate_vae_synthetic_data(decoder, num_samples, latent_dim, scaler, financial_data.columns)
-
-    print("First 5 rows of the VAE synthetic data:")
-    print(vae_synthetic_data.head())
-
-    print("\nDescriptive statistics of the VAE synthetic data:")
-    print(vae_synthetic_data.describe())
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    We have successfully generated a new set of synthetic financial data using our trained VAE. Observing the head and descriptive statistics, the generated data now resides in the original financial scale, making it directly comparable to our real data. The values appear plausible and within reasonable financial ranges, indicating that the VAE has learned to capture the essence of the financial features and their underlying distribution.
-    ```
-
-### Section 9: Introduction to Generative Adversarial Networks (GANs)
-
-*   **Markdown Cell:**
-    ```markdown
-    **Generative Adversarial Networks (GANs)**, introduced by Goodfellow et al. (2014), offer an alternative and highly effective approach to synthetic data generation. GANs are based on a **game-theoretic framework** involving two competing neural networks:
-
-    1.  **Generator (G):** This network takes random noise $ \mathbf{z} $ as input and transforms it into synthetic data $ G(\mathbf{z}) $. Its goal is to produce data that is indistinguishable from real data.
-    2.  **Discriminator (D):** This network takes both real data $ \mathbf{x} $ and synthetic data $ G(\mathbf{z}) $ as input and outputs a probability indicating whether the input is real (close to 1) or fake (close to 0). Its goal is to accurately distinguish between real and fake samples.
-
-    The two networks are trained simultaneously in a **zero-sum game**: the Generator tries to maximize the Discriminator's error (i.e., fool it into thinking synthetic data is real), while the Discriminator tries to minimize its own error (i.e., correctly classify real and fake data). This adversarial process drives both networks to improve. Training is considered successful when the Generator can produce data that the Discriminator classifies as real with a probability of approximately $ 0.5 $, meaning it can no longer reliably distinguish between real and synthetic data.
-
-    The objective function for a GAN is given by:
-    $$ \min_G \max_D V(D, G) = E_{\mathbf{x} \sim p_{data}(\mathbf{x})}[\log D(\mathbf{x})] + E_{\mathbf{z} \sim p_{\mathbf{z}}(\mathbf{z})}[\log(1 - D(G(\mathbf{z})))] $$
-    *   The Discriminator aims to maximize $ V(D, G) $, correctly identifying real samples as real ($ D(\mathbf{x}) \rightarrow 1 $) and fake samples as fake ($ D(G(\mathbf{z})) \rightarrow 0 $).
-    *   The Generator aims to minimize $ V(D, G) $ (or equivalently, maximize $ E_{\mathbf{z} \sim p_{\mathbf{z}}(\mathbf{z})}[\log D(G(\mathbf{z}))] $), fooling the Discriminator into classifying fake samples as real ($ D(G(\mathbf{z})) \rightarrow 1 $).
-
-    This adversarial dynamic allows GANs to learn complex, high-dimensional data distributions effectively, often generating highly realistic synthetic samples.
-    ```
-
-### Section 10: Defining the GAN Architecture
-
-*   **Markdown Cell:**
-    ```markdown
-    Similar to the VAE, we'll define the Generator and Discriminator networks for our GAN using TensorFlow Keras.
-
-    The **Generator** will take a random latent vector (noise) and upscale it through several `tf.keras.layers.Dense` layers with `relu` activations to generate data matching the dimensions of our financial features. Its final layer will use a `sigmoid` activation to output values within the $ [0, 1] $ range.
-
-    The **Discriminator** will take either real or synthetic financial data as input and process it through `tf.keras.layers.Dense` layers with `relu` activations. Its final layer will be a single `Dense` unit with a `sigmoid` activation, outputting a probability score indicating the likelihood of the input being real.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def build_generator(latent_dim, output_dim, hidden_dim=64):
-        model = tf.keras.Sequential([
-            tf.keras.layers.Dense(hidden_dim, activation='relu', input_shape=(latent_dim,)),
-            tf.keras.layers.Dense(hidden_dim * 2, activation='relu'),
-            tf.keras.layers.Dense(output_dim, activation='sigmoid') # Output scaled data [0,1]
-        ], name='generator')
-        return model
-
-    def build_discriminator(input_dim, hidden_dim=64):
-        model = tf.keras.Sequential([
-            tf.keras.layers.Dense(hidden_dim * 2, activation='relu', input_shape=(input_dim,)),
-            tf.keras.layers.Dense(hidden_dim, activation='relu'),
-            tf.keras.layers.Dense(1, activation='sigmoid') # Output probability (real/fake)
-        ], name='discriminator')
-        return model
-
-    def build_gan(input_dim, latent_dim, hidden_dim_generator=64, hidden_dim_discriminator=64):
-        """
-        Builds and returns the GAN Generator, Discriminator, and the combined GAN model.
-
-        Args:
-            input_dim (int): Dimensionality of the real data.
-            latent_dim (int): Dimensionality of the latent noise vector.
-            hidden_dim_generator (int): Number of units in generator's hidden layer.
-            hidden_dim_discriminator (int): Number of units in discriminator's hidden layer.
-
-        Returns:
-            tuple: (Generator model, Discriminator model, combined GAN model for generator training).
-        """
-        generator = build_generator(latent_dim, input_dim, hidden_dim_generator)
-        discriminator = build_discriminator(input_dim, hidden_dim_discriminator)
-
-        # The combined GAN model (for training the Generator)
-        discriminator.trainable = False # Discriminator is frozen when training generator
-        gan_input = tf.keras.Input(shape=(latent_dim,))
-        x = generator(gan_input)
-        gan_output = discriminator(x)
-        gan_model = tf.keras.Model(gan_input, gan_output, name='gan_model')
-
-        return generator, discriminator, gan_model
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Define model parameters
-    input_dim = scaled_financial_data.shape[1]
-    latent_dim = 20 # A larger latent dimension for GANs typically helps with expressiveness
-    hidden_dim = 64
-
-    # Build the GAN models
-    generator, discriminator, gan_model = build_gan(input_dim, latent_dim, hidden_dim)
-
-    print("Generator Model Summary:")
-    generator.summary()
-
-    print("\nDiscriminator Model Summary:")
-    discriminator.summary()
-
-    print("\nCombined GAN Model Summary (for generator training):")
-    gan_model.summary()
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The Generator and Discriminator architectures for our GAN have been defined. The Generator is designed to transform random noise into synthetic financial features, while the Discriminator is set up to classify inputs as either real or synthetic. Note the `latent_dim` for GANs is typically chosen to be larger than VAEs to provide more expressive power to the generator. The combined GAN model facilitates the adversarial training process, ensuring that the Discriminator's weights are frozen when the Generator is being optimized to only update the Generator's parameters based on the Discriminator's feedback.
-    ```
-
-### Section 11: Training the GAN Model
-
-*   **Markdown Cell:**
-    ```markdown
-    Training a GAN is an iterative and delicate process, involving alternating updates for the Discriminator and the Generator. This **adversarial training loop** is crucial:
-    1.  **Discriminator Training:** The Discriminator is trained to distinguish between real data (labeled as `1`) and fake data generated by the current Generator (labeled as `0`).
-    2.  **Generator Training:** The Generator is then trained to fool the Discriminator. It generates fake data, and the Discriminator's output for this fake data is used as a loss signal. The Generator's objective is to make the Discriminator output `1` (real) for its synthetic samples.
-
-    This ensures that both networks continuously improve. We will use the `Adam` optimizer for both the Generator and Discriminator, and `tf.keras.losses.BinaryCrossentropy` as the loss function, as this is a binary classification task for the Discriminator.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def train_gan_model(generator, discriminator, gan_model, train_data, epochs=50, batch_size=32, latent_dim=100, learning_rate=0.0002):
-        """
-        Implements the adversarial training loop for the GAN.
-
-        Args:
-            generator (tf.keras.Model): The GAN generator model.
-            discriminator (tf.keras.Model): The GAN discriminator model.
-            gan_model (tf.keras.Model): The combined GAN model (generator + discriminator, with discriminator frozen).
-            train_data (np.array): The training data (scaled).
-            epochs (int): Number of training epochs.
-            batch_size (int): Batch size for training.
-            latent_dim (int): Dimensionality of the latent noise vector.
-            learning_rate (float): Learning rate for the Adam optimizer.
-
-        Returns:
-            dict: A dictionary containing lists of discriminator and generator losses per epoch.
-        """
-        # Define optimizers and loss for discriminator and generator
-        d_optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-        g_optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-        loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=False)
-
-        discriminator.compile(optimizer=d_optimizer, loss=loss_fn)
-        # Re-compile gan_model to ensure discriminator is non-trainable during generator training
-        discriminator.trainable = False
-        gan_model.compile(optimizer=g_optimizer, loss=loss_fn)
-        discriminator.trainable = True # Re-enable for its own training steps
-
-        d_losses = []
-        g_losses = []
-
-        dataset = tf.data.Dataset.from_tensor_slices(train_data).shuffle(num_samples).batch(batch_size)
-
-        for epoch in range(epochs):
-            d_epoch_loss = tf.keras.metrics.Mean()
-            g_epoch_loss = tf.keras.metrics.Mean()
-
-            for batch in dataset:
-                # ---------------------
-                #  Train Discriminator
-                # ---------------------
-                # Generate fake images
-                noise = tf.random.normal(shape=(batch_size, latent_dim))
-                generated_data = generator(noise)
-
-                # Combine real and fake images
-                combined_data = tf.concat([batch, generated_data], axis=0)
-                
-                # Labels for real and fake data
-                labels = tf.concat([tf.ones((batch_size, 1)), tf.zeros((batch_size, 1))], axis=0)
-                
-                # Add random noise to the labels to help the discriminator learn better
-                labels += 0.05 * tf.random.uniform(tf.shape(labels))
-
-                with tf.GradientTape() as tape:
-                    predictions = discriminator(combined_data)
-                    d_loss = loss_fn(labels, predictions)
-                
-                grads = tape.gradient(d_loss, discriminator.trainable_weights)
-                d_optimizer.apply_gradients(zip(grads, discriminator.trainable_weights))
-                d_epoch_loss.update_state(d_loss)
-
-                # ---------------------
-                #  Train Generator
-                # ---------------------
-                # Generate random noise
-                noise = tf.random.normal(shape=(batch_size, latent_dim))
-                
-                # Labels for generator training (want discriminator to classify as real)
-                misleading_labels = tf.ones((batch_size, 1))
-
-                # Train the generator (discriminator weights are frozen)
-                with tf.GradientTape() as tape:
-                    generated_data = generator(noise)
-                    predictions = discriminator(generated_data)
-                    g_loss = loss_fn(misleading_labels, predictions)
-                
-                grads = tape.gradient(g_loss, generator.trainable_weights)
-                g_optimizer.apply_gradients(zip(grads, generator.trainable_weights))
-                g_epoch_loss.update_state(g_loss)
-            
-            d_losses.append(d_epoch_loss.result().numpy())
-            g_losses.append(g_epoch_loss.result().numpy())
-            # print(f"Epoch {epoch+1}/{epochs} - D Loss: {d_epoch_loss.result():.4f}, G Loss: {g_epoch_loss.result():.4f}")
-            
-        return {'d_loss': d_losses, 'g_loss': g_losses}
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Train the GAN model
-    epochs = 100
-    batch_size = 32
-    latent_dim_gan = 20 # Use the latent_dim defined for GAN
-    learning_rate = 0.0002
-
-    print(f"Training GAN for {epochs} epochs with batch size {batch_size} and latent dimension {latent_dim_gan}...")
-    gan_history = train_gan_model(generator, discriminator, gan_model, scaled_financial_data.values, epochs, batch_size, latent_dim_gan, learning_rate)
-    print("GAN training complete.")
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The GAN model has undergone its adversarial training process. This iterative competition between the Generator and Discriminator is what enables GANs to learn to produce highly realistic data. The `gan_history` dictionary stores the average losses for both networks across each epoch, which are crucial for assessing how well the adversarial training progressed. Observing these losses will give us insight into the stability and effectiveness of the training. A balanced training (where neither loss dominates) is often indicative of good convergence.
-    ```
-
-### Section 12: Visualizing GAN Training Progress
-
-*   **Markdown Cell:**
-    ```markdown
-    Monitoring the Discriminator and Generator losses during GAN training helps us understand the dynamics of the adversarial game. While VAE losses typically show a smooth downward trend, GAN losses can be more volatile due to the competing nature of the networks. Ideally, we want to see both losses converge to a stable state, indicating neither network is overwhelmingly winning, and the Generator is producing data that the Discriminator struggles to classify. If one loss consistently goes to zero while the other remains high, it might indicate issues like mode collapse or training instability.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def plot_gan_loss(history):
-        """
-        Plots the Generator and Discriminator loss curves over epochs.
-
-        Args:
-            history (dict): A dictionary containing 'd_loss' and 'g_loss' lists.
-        """
-        plt.figure(figsize=(10, 6))
-        plt.plot(history['d_loss'], label='Discriminator Loss')
-        plt.plot(history['g_loss'], label='Generator Loss')
-        plt.title('GAN Training Loss Over Epochs')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.grid(True)
-        plt.show()
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Plot the GAN training losses
-    plot_gan_loss(gan_history)
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The plot illustrates the Generator and Discriminator losses over the training epochs. Fluctuations are common in GAN training, but a general trend where both losses reach a relatively stable, non-zero point suggests that the Generator is producing data realistic enough to challenge the Discriminator. If one loss consistently goes to zero while the other remains high, it might indicate a mode collapse (Generator has found a few samples that fool the discriminator but doesn't capture full data diversity) or training instability where one network dominates the other. For our current plot, we observe a competitive balance, indicating effective adversarial learning.
-    ```
-
-### Section 13: Generating Synthetic Data with GAN
-
-*   **Markdown Cell:**
-    ```markdown
-    Once the GAN is trained, the Generator network alone is used to produce synthetic data. We simply feed random noise vectors into the trained Generator, and it will output new data points that statistically resemble the real financial data it learned from. Similar to the VAE, the generated data is then inverse-transformed using our `MinMaxScaler` to return it to the original, interpretable financial scale.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def generate_gan_synthetic_data(generator_model, num_samples, latent_dim, scaler, feature_names):
-        """
-        Generates synthetic data using the GAN generator.
-
-        Args:
-            generator_model (tf.keras.Model): The trained GAN generator model.
-            num_samples (int): The number of synthetic samples to generate.
-            latent_dim (int): The dimensionality of the latent noise vector.
-            scaler (sklearn.preprocessing.MinMaxScaler): The scaler used for inverse transformation.
-            feature_names (list): List of original feature names.
-
-        Returns:
-            pandas.DataFrame: A DataFrame containing the inverse-transformed synthetic data.
-        """
-        # Generate random samples from a standard normal distribution for the input noise
-        random_noise = tf.random.normal(shape=(num_samples, latent_dim))
-        
-        # Pass these noise vectors through the generator model
-        generated_scaled_data = generator_model.predict(random_noise, verbose=0)
-        
-        # Inverse transform the generated data to the original scale
-        synthetic_data_array = scaler.inverse_transform(generated_scaled_data)
-        
-        return pd.DataFrame(synthetic_data_array, columns=feature_names)
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Generate 1000 synthetic samples using the GAN
-    gan_synthetic_data = generate_gan_synthetic_data(generator, num_samples, latent_dim_gan, scaler, financial_data.columns)
-
-    print("First 5 rows of the GAN synthetic data:")
-    print(gan_synthetic_data.head())
-
-    print("\nDescriptive statistics of the GAN synthetic data:")
-    print(gan_synthetic_data.describe())
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    We have now produced synthetic financial data using our trained GAN Generator. The initial rows and descriptive statistics show that the data is scaled back to its original range, allowing for direct comparison. These samples represent novel financial scenarios that maintain the patterns and distributions learned from the real dataset. With both VAE and GAN synthetic datasets ready, we can proceed to a detailed comparative statistical analysis.
-    ```
-
-### Section 14: Comparative Statistical Analysis of Real vs. Synthetic Data
-
-*   **Markdown Cell:**
-    ```markdown
-    A crucial step in validating synthetic data is to compare its statistical properties against the original real data. This helps us quantify how well our VAE and GAN models have captured the underlying data distribution and relationships. We will focus on:
-    *   **Descriptive Statistics**: Comparing means, standard deviations, and value ranges for each feature.
-    *   **Distribution Shapes**: Visualizing overlaid histograms and Kernel Density Estimates (KDEs) for each feature to see how well the distributions match.
-    *   **Visual Patterns**: For features that might exhibit time-series-like behavior (even if generated samples are independent), a visual inspection can provide qualitative insights into their structure.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def compare_statistics(real_data, synthetic_data_vae, synthetic_data_gan):
-        """
-        Compares descriptive statistics of real, VAE synthetic, and GAN synthetic data.
-
-        Args:
-            real_data (pandas.DataFrame): The original real financial data.
-            synthetic_data_vae (pandas.DataFrame): Synthetic data generated by VAE.
-            synthetic_data_gan (pandas.DataFrame): Synthetic data generated by GAN.
-        """
-        print("--- Descriptive Statistics Comparison ---")
-        
-        print("\nReal Data Statistics:")
-        print(real_data.describe())
-        
-        print("\nVAE Synthetic Data Statistics:")
-        print(synthetic_data_vae.describe())
-        
-        print("\nGAN Synthetic Data Statistics:")
-        print(synthetic_data_gan.describe())
-
-    def compare_distributions(real_data, synthetic_data_vae, synthetic_data_gan, feature_names):
-        """
-        Compares feature distributions using overlaid histograms and KDE plots.
-
-        Args:
-            real_data (pandas.DataFrame): The original real financial data.
-            synthetic_data_vae (pandas.DataFrame): Synthetic data generated by VAE.
-            synthetic_data_gan (pandas.DataFrame): Synthetic data generated by GAN.
-            feature_names (list): List of feature names to plot.
-        """
-        print("\n--- Feature Distribution Comparison (Histograms & KDEs) ---")
-        num_features = len(feature_names)
-        num_cols = 2
-        num_rows = (num_features + num_cols - 1) // num_cols
-
-        plt.figure(figsize=(num_cols * 7, num_rows * 5))
-        for i, feature in enumerate(feature_names):
-            plt.subplot(num_rows, num_cols, i + 1)
-            sns.histplot(real_data[feature], color='blue', label='Real', kde=True, stat='density', alpha=0.5, line_kws={'linewidth':2})
-            sns.histplot(synthetic_data_vae[feature], color='green', label='VAE Synthetic', kde=True, stat='density', alpha=0.5, line_kws={'linewidth':2})
-            sns.histplot(synthetic_data_gan[feature], color='red', label='GAN Synthetic', kde=True, stat='density', alpha=0.5, line_kws={'linewidth':2})
-            plt.title(f'Distribution of {feature}')
-            plt.xlabel(feature)
-            plt.ylabel('Density')
-            plt.legend()
-        plt.tight_layout()
-        plt.show()
-
-    def plot_time_series_comparison(real_data, synthetic_data_vae, synthetic_data_gan, feature_name, num_samples_to_plot=100):
-        """
-        Plots time-series like comparisons for a selected feature.
-
-        Args:
-            real_data (pandas.DataFrame): The original real financial data.
-            synthetic_data_vae (pandas.DataFrame): Synthetic data generated by VAE.
-            synthetic_data_gan (pandas.DataFrame): Synthetic data generated by GAN.
-            feature_name (str): The name of the feature to plot.
-            num_samples_to_plot (int): Number of samples to plot for visual comparison.
-        """
-        print(f"\n--- Time-Series Like Comparison for '{feature_name}' ---")
-        plt.figure(figsize=(15, 6))
-        
-        plt.plot(real_data[feature_name].head(num_samples_to_plot), label='Real Data', color='blue', alpha=0.7)
-        plt.plot(synthetic_data_vae[feature_name].head(num_samples_to_plot), label='VAE Synthetic', color='green', linestyle='--', alpha=0.7)
-        plt.plot(synthetic_data_gan[feature_name].head(num_samples_to_plot), label='GAN Synthetic', color='red', linestyle=':', alpha=0.7)
-        
-        plt.title(f'Time-Series Like Visual Comparison of {feature_name}')
-        plt.xlabel('Sample Index')
-        plt.ylabel(feature_name)
-        plt.legend()
-        plt.grid(True)
-        plt.show()
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Compare descriptive statistics
-    compare_statistics(financial_data, vae_synthetic_data, gan_synthetic_data)
-
-    # Compare feature distributions
-    feature_names = financial_data.columns.tolist()
-    compare_distributions(financial_data, vae_synthetic_data, gan_synthetic_data, feature_names)
-
-    # Plot time-series like comparison for 'Daily_Return'
-    plot_time_series_comparison(financial_data, vae_synthetic_data, gan_synthetic_data, 'Daily_Return')
-
-    # Plot time-series like comparison for 'Volatility'
-    plot_time_series_comparison(financial_data, vae_synthetic_data, gan_synthetic_data, 'Volatility')
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    The statistical comparisons provide critical insights into the quality of the generated synthetic data.
-    *   From the **descriptive statistics tables**, Financial Data Engineers can quantitatively assess how closely the means, standard deviations, and value ranges of synthetic data align with the real data. Deviations here can indicate a lack of fidelity.
-    *   The **distribution plots** offer a visual assessment, showing whether the models have captured the overall shape and spread of each feature's distribution. Ideally, the synthetic distributions should closely overlap with the real data's distribution. This is a strong indicator of how well the models have learned the underlying data generating process.
-    *   The **time-series like plots** provide a qualitative view. While our basic VAE/GAN models don't explicitly model temporal dependencies, these plots allow us to visually inspect if the *characteristics* of the sequential patterns (e.g., typical volatility levels, return fluctuations, or the smoothness/choppiness of a feature) are maintained. This helps in understanding if the generated data *looks* like plausible financial time series, even without perfect autocorrelation.
-
-    By analyzing these comparisons, Financial Data Engineers can determine which model (VAE or GAN) is more effective for their specific data and application, based on how accurately it reproduces the essential statistical signatures of the real financial environment.
-    ```
-
-### Section 15: Adjusting Latent Variables / Noise for Data Variation
-
-*   **Markdown Cell:**
-    ```markdown
-    One of the powerful aspects of generative models is the ability to influence the characteristics of the generated data by manipulating their input: the latent variables for VAEs or the noise vector for GANs. This interactivity allows Financial Data Engineers to explore various hypothetical market scenarios or generate data with specific properties, which is invaluable for stress-testing and scenario analysis.
-
-    For **VAEs**, we can sample from specific points in the learned latent space, or slightly perturb a central latent vector (e.g., the mean of the encoded real data's latent space) to generate data variations around a 'typical' financial state.
-
-    For **GANs**, we can vary the distribution or scale of the input noise vector $ \mathbf{z} $. For example, we might sample from a different standard deviation or a skewed distribution to simulate more extreme or unusual market conditions. This provides a mechanism for **scenario generation**.
-    ```
-*   **Code Cell (Function):**
-    ```python
-    def explore_vae_latent_space(decoder_model, latent_dim, scaler, original_data_stats, feature_names, num_variations=5, latent_dim_to_vary=0):
-        """
-        Generates and analyzes synthetic data by perturbing VAE latent vectors.
-
-        Args:
-            decoder_model (tf.keras.Model): The trained VAE decoder model.
-            latent_dim (int): Dimensionality of the latent space.
-            scaler (sklearn.preprocessing.MinMaxScaler): The scaler for inverse transformation.
-            original_data_stats (dict): Dictionary of mean statistics for original data features.
-            feature_names (list): List of original feature names.
-            num_variations (int): Number of variations to generate.
-            latent_dim_to_vary (int): Index of the latent dimension to perturb.
-        """
-        print(f"--- Exploring VAE Latent Space by varying latent dimension {latent_dim_to_vary} ---")
-        
-        # Start with a central latent vector (e.g., zeros)
-        base_latent_vector = np.zeros((1, latent_dim))
-        
-        variation_results = []
-        variation_labels = []
-        
-        # Define perturbation range
-        perturbations = np.linspace(-3, 3, num_variations) # Varies across +/- 3 standard deviations in latent space
-        
-        for i, p in enumerate(perturbations):
-            current_latent_vector = base_latent_vector.copy()
-            current_latent_vector[0, latent_dim_to_vary] = p
-            
-            generated_scaled_data = decoder_model.predict(current_latent_vector, verbose=0)
-            synthetic_sample = scaler.inverse_transform(generated_scaled_data)[0]
-            synthetic_df = pd.DataFrame([synthetic_sample], columns=feature_names)
-            
-            variation_results.append(synthetic_df)
-            variation_labels.append(f'Perturbation {p:.2f}')
-            
-            print(f"\nVariation {i+1} (Latent[{latent_dim_to_vary}] = {p:.2f}):")
-            print(synthetic_df.round(4))
-
-        # Optional: Plotting how a specific feature changes
-        feature_to_plot = 'Daily_Return' # Example feature
-        if feature_to_plot in feature_names:
-            plt.figure(figsize=(10, 5))
-            feature_values = [res[feature_to_plot].iloc[0] for res in variation_results]
-            plt.plot(perturbations, feature_values, marker='o')
-            plt.axhline(y=original_data_stats[feature_to_plot], color='r', linestyle='--', label=f'Original Mean {feature_to_plot}')
-            plt.title(f'Effect of Latent Dimension {latent_dim_to_vary} Variation on {feature_to_plot}')
-            plt.xlabel(f'Latent Dimension {latent_dim_to_vary} Value')
-            plt.ylabel(feature_to_plot)
-            plt.legend()
-            plt.grid(True)
-            plt.show()
-
-
-    def explore_gan_noise_variation(generator_model, latent_dim, scaler, original_data_stats, feature_names, num_variations=5, noise_factor_range=(0.5, 2.0)):
-        """
-        Generates and analyzes synthetic data by varying GAN input noise.
-
-        Args:
-            generator_model (tf.keras.Model): The trained GAN generator model.
-            latent_dim (int): Dimensionality of the latent noise vector.
-            scaler (sklearn.preprocessing.MinMaxScaler): The scaler for inverse transformation.
-            original_data_stats (dict): Dictionary of mean statistics for original data features.
-            feature_names (list): List of original feature names.
-            num_variations (int): Number of variations to generate.
-            noise_factor_range (tuple): (min_factor, max_factor) to scale random noise.
-        """
-        print(f"--- Exploring GAN Noise Variation (scaling noise by factor) ---")
-
-        # Generate a base random noise vector
-        base_noise = tf.random.normal(shape=(1, latent_dim))
-
-        variation_results = []
-        variation_labels = []
-        
-        # Define noise scaling factors
-        noise_factors = np.linspace(noise_factor_range[0], noise_factor_range[1], num_variations)
-        
-        for i, factor in enumerate(noise_factors):
-            current_noise = base_noise * factor
-            
-            generated_scaled_data = generator_model.predict(current_noise, verbose=0)
-            synthetic_sample = scaler.inverse_transform(generated_scaled_data)[0]
-            synthetic_df = pd.DataFrame([synthetic_sample], columns=feature_names)
-            
-            variation_results.append(synthetic_df)
-            variation_labels.append(f'Noise Factor {factor:.2f}')
-            
-            print(f"\nVariation {i+1} (Noise Factor = {factor:.2f}):")
-            print(synthetic_df.round(4))
-
-        # Optional: Plotting how a specific feature changes
-        feature_to_plot = 'Volatility' # Example feature
-        if feature_to_plot in feature_names:
-            plt.figure(figsize=(10, 5))
-            feature_values = [res[feature_to_plot].iloc[0] for res in variation_results]
-            plt.plot(noise_factors, feature_values, marker='o')
-            plt.axhline(y=original_data_stats[feature_to_plot], color='r', linestyle='--', label=f'Original Mean {feature_to_plot}')
-            plt.title(f'Effect of Noise Factor Variation on {feature_to_plot}')
-            plt.xlabel('Noise Scaling Factor')
-            plt.ylabel(feature_to_plot)
-            plt.legend()
-            plt.grid(True)
-            plt.show()
-    ```
-*   **Code Cell (Execution):**
-    ```python
-    # Get original data statistics (mean of each feature) for comparison
-    original_stats_mean = financial_data.mean().to_dict()
-    
-    # Explore VAE latent space variations
-    explore_vae_latent_space(decoder, latent_dim, scaler, original_stats_mean, financial_data.columns, num_variations=7, latent_dim_to_vary=0)
-
-    # Explore GAN noise variations
-    explore_gan_noise_variation(generator, latent_dim_gan, scaler, original_stats_mean, financial_data.columns, num_variations=7, noise_factor_range=(0.2, 3.0))
-    ```
-*   **Markdown Cell (Explanation):**
-    ```markdown
-    By adjusting the latent variables for the VAE and the input noise for the GAN, we can observe how these changes propagate to the generated synthetic financial data. This demonstrates the "interactive" aspect of these generative models.
-    *   For the VAE, a small shift in a specific latent dimension can smoothly change the generated `Daily_Return` or `Volatility`, allowing us to simulate slightly different market conditions.
-    *   For the GAN, scaling the input noise vector by different factors can generate data with varying levels of extremity. For instance, increasing the "noise factor" might produce more volatile or extreme synthetic data points, simulating tail events or heightened market uncertainty.
-
-    This capability is vital for Financial Data Engineers conducting scenario analysis and stress-testing, allowing them to probe the models for various hypothetical outcomes and understand the resilience of financial models under diverse, user-defined conditions.
-    ```
-
-### Section 16: Financial Applications of Synthetic Data
-
-*   **Markdown Cell:**
-    ```markdown
-    The ability to generate high-fidelity synthetic financial data using VAEs and GANs opens up a multitude of critical applications for Financial Data Engineers:
-
-    1.  **Privacy-Preserving Data Sharing:** Real financial data often contains highly sensitive information (e.g., client portfolios, proprietary trading strategies) subject to strict regulations (GDPR, CCPA). Synthetic data allows for the creation of anonymized, non-identifiable datasets that maintain the statistical properties of the original data. This enables secure sharing with third parties, academic researchers, or across departments for model development and testing without compromising privacy or regulatory compliance.
-
-    2.  **Stress-Testing Financial Models:** Financial models (e.g., risk models, pricing models, trading algorithms) need to be robust to extreme and unprecedented market events. Historical data, by definition, lacks records of future crises. Synthetic data generators can be specifically trained or manipulated (as demonstrated in the previous section by adjusting latent variables/noise) to produce data reflecting "black swan" events, severe economic downturns, or sudden market shocks. This allows Financial Data Engineers to stress-test models beyond historical limits and assess their resilience in hypothetical adverse scenarios.
-
-    3.  **Simulating Complex Market Scenarios:** Financial markets are dynamic and influenced by numerous interacting factors. Synthetic data can be used to simulate hypothetical market scenarios (e.g., persistent low interest rates, high inflation environments, sector-specific shocks, or varying market sentiment) to evaluate the performance of investment strategies, optimize portfolio allocations, or assess systemic risk under various conditions. This capability enables proactive decision-making and strategic planning.
-
-    4.  **Enhancing Data Augmentation and Scarcity:** In many financial domains, high-quality labeled data can be scarce or expensive to acquire (e.g., rare fraud events, specific option types). Generative models can augment existing datasets by creating new, realistic samples, effectively increasing the training data size and improving the generalization capabilities of machine learning models for tasks like fraud detection, credit scoring, or algorithmic trading.
-
-    5.  **Uncovering Latent Factors Driving Asset Prices:** By compressing high-dimensional financial data into a lower-dimensional latent space, VAEs can implicitly learn and reveal hidden, uncorrelated factors that drive asset prices or market behavior. These latent factors can provide novel insights for portfolio construction, risk management, and understanding market dynamics, going beyond traditional observable economic indicators.
-
-    In conclusion, VAEs and GANs provide powerful tools for Financial Data Engineers to innovate, manage risk, and extract value from data in a privacy-preserving and robust manner, addressing some of the most pressing challenges in modern finance.
-    ```
+---
+
+### Section 1: Introduction to Synthetic Data Generation in Finance
+
+This section will introduce the concept of synthetic data generation, its growing importance in the financial sector, and the specific advanced deep learning techniques (VAEs and GANs) that will be explored. It will highlight applications such as privacy preservation, stress testing, and market scenario simulation.
+
+---
+
+### Section 2: Setting Up the Environment and Loading Financial Data
+
+This section will cover the necessary library imports and the loading of a sample financial time series dataset. For consistency and reproducibility, we will generate a mock dataset that mimics real financial time series, such as historical stock prices for multiple assets.
+
+**Code Cell (Implementation): Import Libraries**
+```
+Import `numpy`, `pandas`, `torch`, `torch.nn`, `torch.optim`, `torch.utils.data`, `matplotlib.pyplot`, `seaborn`, `sklearn.preprocessing`.
+```
+
+**Code Cell (Execution): Generate Mock Financial Time Series Data**
+```
+Call `generate_mock_financial_time_series_data` to create a synthetic dataset.
+The dataset should represent daily closing prices for 5 different stocks over 252 trading days (approx. one year).
+The data will be a Pandas DataFrame with columns `Asset_1_Price`, `Asset_2_Price`, ..., `Asset_5_Price`.
+Each asset's price will follow a random walk with a drift, and some assets will have simulated correlation.
+Set a specific random seed for reproducibility.
+Display the first 5 rows and basic descriptive statistics of the generated DataFrame.
+```
+
+**Markdown Cell (Explanation): Understanding the Mock Financial Data**
+The mock financial time series data simulates daily closing prices for five hypothetical assets. This type of data is common in finance for tasks like portfolio management, risk assessment, and market analysis. The generation process introduces realistic characteristics such as trends, volatility, and inter-asset correlations, making it suitable for training generative models.
+The table above shows the initial values of these simulated stock prices, while the descriptive statistics provide an overview of their range, average, and variability.
+
+---
+
+### Section 3: Data Preprocessing for Deep Learning
+
+Financial time series data often requires preprocessing before being fed into deep learning models. This typically includes scaling (normalization or standardization) to bring values into a similar range, which aids model convergence and performance. For sequence models, data also needs to be structured into input sequences and target sequences.
+
+**Code Cell (Implementation): Define Data Preprocessing Function**
+```
+Define `preprocess_financial_data(data, sequence_length, scaler_type='minmax')`.
+This function will:
+1.  Initialize a `MinMaxScaler` from `sklearn.preprocessing` to scale data to the range [0, 1].
+2.  Fit the scaler on the input `data` and transform it.
+3.  Reshape the scaled data into sequences suitable for recurrent neural networks or transformer models. Each sequence will have `sequence_length` time steps.
+4.  Return the scaled data sequences and the fitted scaler.
+```
+
+**Code Cell (Execution): Preprocess the Financial Data**
+```
+Set `sequence_length = 10`.
+Call `preprocess_financial_data` with the generated mock financial data and the defined `sequence_length`.
+Store the returned scaled data sequences and the scaler.
+Print the shape of the preprocessed data.
+```
+
+**Markdown Cell (Explanation): Impact of Data Preprocessing**
+Data preprocessing transforms raw financial time series into a format optimal for deep learning models. Scaling ensures that features contribute equally to the model's learning process and prevents issues caused by varying magnitudes. Reshaping converts the continuous time series into discrete sequences, allowing the models to learn temporal dependencies. For instance, a `sequence_length` of 10 means each input sample for the models will consist of 10 consecutive daily price observations for all assets.
+
+---
+
+### Section 4: Variational Autoencoders (VAEs) Theory
+
+Variational Autoencoders (VAEs) are generative models that learn a probabilistic mapping from input data to a lower-dimensional latent space. Unlike traditional autoencoders, VAEs model the latent space as a probability distribution, typically Gaussian, allowing for the generation of diverse and realistic synthetic data by sampling from this learned distribution.
+A VAE consists of two main components:
+*   **Encoder:** Maps the input data $x$ to parameters (mean $\mu$ and log-variance $\log(\sigma^2)$) of a latent distribution $q_\phi(z|x)$.
+*   **Decoder:** Reconstructs the original data $\hat{x}$ from a sample $z$ drawn from the latent distribution $p_\theta(x|z)$.
+
+The VAE objective function maximizes the Evidence Lower Bound (ELBO), which is composed of two terms:
+1.  **Reconstruction Loss:** Measures how well the decoder reconstructs the input data. For continuous data, this is often Mean Squared Error (MSE):
+    $$L_{recon}(\theta; x, z) = ||x - \hat{x}||^2$$
+2.  **KL Divergence Loss:** A regularization term that measures the difference between the learned latent distribution $q_\phi(z|x)$ and a prior distribution $p(z)$ (typically a standard normal distribution $N(0, I)$). This term encourages the latent space to be well-structured and continuous, enabling smooth interpolation and effective generation.
+    For Gaussian latent space $q_\phi(z|x) = N(\mu_\phi(x), \Sigma_\phi(x))$ and prior $p(z) = N(0, I)$, the KL divergence is:
+    $$D_{KL}(N(\mu, \Sigma) || N(0, I)) = 0.5 \sum_{i=1}^D (\sigma_i^2 + \mu_i^2 - 1 - \log(\sigma_i^2))$$
+The overall VAE loss function is then a combination of these two terms, typically weighted:
+$$L_{VAE}(\theta, \phi; x) = E_{q_\phi(z|x)}[\log p_\theta(x|z)] - D_{KL}(q_\phi(z|x) || p(z))$$
+During training, a reparameterization trick $z = \mu + \sigma \cdot \epsilon$ (where $\epsilon \sim N(0, I)$) is used to enable backpropagation through the stochastic sampling process.
+
+---
+
+### Section 5: Implementing the VAE Architecture
+
+This section details the construction of the VAE's Encoder and Decoder networks. For time series, these will typically involve recurrent layers to capture temporal dependencies.
+
+**Code Cell (Implementation): Define VAE Encoder, Decoder, and Model Classes**
+```
+Define `VAEEncoder(torch.nn.Module)`:
+-   Takes `input_dim`, `hidden_dim`, `latent_dim` as parameters.
+-   Uses `torch.nn.LSTM` or `torch.nn.GRU` layers followed by `torch.nn.Linear` layers to output `mu` and `log_var`.
+
+Define `VAEDecoder(torch.nn.Module)`:
+-   Takes `latent_dim`, `hidden_dim`, `output_dim` as parameters.
+-   Uses `torch.nn.Linear` layers followed by `torch.nn.LSTM` or `torch.nn.GRU` layers to reconstruct the sequence.
+
+Define `VAEModel(torch.nn.Module)`:
+-   Comprises an `encoder` and a `decoder`.
+-   Includes a `reparameterize` method to sample from the latent distribution.
+-   The `forward` method takes input `x`, passes it through the encoder to get `mu` and `log_var`, samples `z` using reparameterization, and passes `z` through the decoder to get `reconstruction`.
+-   Returns `reconstruction`, `mu`, `log_var`.
+```
+
+**Code Cell (Execution): Instantiate the VAE Model**
+```
+Set `input_dim` to the number of features in the preprocessed data (e.g., 5 for 5 assets).
+Set `hidden_dim` for the recurrent layers (e.g., 64).
+Set `latent_dim` for the VAE's latent space (e.g., 32).
+Set `output_dim` to match `input_dim`.
+Instantiate `VAEModel` with these parameters.
+Move the model to the appropriate device (CPU/GPU).
+Print the VAE model structure.
+```
+
+**Markdown Cell (Explanation): VAE Model Architecture**
+The VAE model is built with an encoder and a decoder. The encoder processes the input financial time series using recurrent layers (like LSTMs or GRUs) to capture sequence information, then maps this to the mean and log-variance of a latent Gaussian distribution. The reparameterization trick allows us to sample from this distribution while maintaining differentiability for backpropagation. The decoder, also using recurrent layers, takes this latent sample and reconstructs the original financial time series. This architecture allows the VAE to learn a compressed, probabilistic representation of the data.
+
+---
+
+### Section 6: VAE Loss Function and Training Loop
+
+The VAE is trained by minimizing a combined loss function that balances reconstruction accuracy with regularization of the latent space. The training loop iteratively feeds mini-batches of data to the VAE, calculates the loss, and updates the model's parameters.
+
+**Code Cell (Implementation): Define VAE Loss and Training Epoch Functions**
+```
+Define `vae_loss_function(reconstruction, x, mu, log_var, beta=1.0)`:
+-   Calculates the Reconstruction Loss using `torch.nn.functional.mse_loss` between `reconstruction` and `x`.
+-   Calculates the KL Divergence Loss using the formula: `0.5 * torch.sum(torch.exp(log_var) + mu**2 - 1 - log_var)`.
+-   Returns the sum of Reconstruction Loss and `beta * KL_Divergence_Loss`.
+
+Define `train_vae_epoch(model, dataloader, optimizer, device, beta)`:
+-   Sets the model to training mode.
+-   Iterates through the `dataloader`.
+-   For each batch:
+    -   Moves batch data to `device`.
+    -   Performs forward pass to get `reconstruction`, `mu`, `log_var`.
+    -   Calculates `loss` using `vae_loss_function`.
+    -   Performs backward pass and `optimizer.step()`.
+    -   Returns average `loss` for the epoch.
+```
+
+**Code Cell (Execution): Instantiate VAE Optimizer and Loss Function**
+```
+Define `learning_rate = 1e-3`.
+Instantiate `torch.optim.Adam` optimizer for the VAE model.
+Define `beta = 0.1` for the KL divergence weight.
+```
+
+**Markdown Cell (Explanation): VAE Training Mechanics**
+The VAE loss function is crucial for balancing reconstruction quality with the desired structure of the latent space. The `beta` parameter allows for tuning the influence of the KL divergence term; a higher `beta` encourages a latent space closer to a standard normal distribution, while a lower `beta` prioritizes reconstruction accuracy. The `Adam` optimizer is used to efficiently adjust the model's weights during training, aiming to minimize this combined loss function.
+
+---
+
+### Section 7: Training the VAE Model
+
+The training process involves iterating over the dataset for a specified number of epochs, applying the `train_vae_epoch` function for each epoch.
+
+**Code Cell (Implementation): Define VAE Training Orchestration Function**
+```
+Define `train_vae_model(model, train_dataloader, epochs, optimizer, device, beta)`:
+-   Initializes empty lists to store `reconstruction_losses` and `kl_divergence_losses` per epoch.
+-   Loops for `epochs`:
+    -   Calls `train_vae_epoch`.
+    -   (Optional: Adds logic to calculate and store separate reconstruction and KL divergence components for plotting).
+    -   Prints epoch number and current loss.
+-   Returns `reconstruction_losses` and `kl_divergence_losses`.
+```
+
+**Code Cell (Execution): Execute VAE Training**
+```
+Set `epochs = 50`.
+Set `batch_size = 32`.
+Create `TensorDataset` and `DataLoader` from the preprocessed data.
+Call `train_vae_model` with the VAE model, dataloader, epochs, optimizer, device, and beta.
+Store the returned loss histories.
+```
+
+**Markdown Cell (Explanation): VAE Training Process Overview**
+Training the VAE involves repeatedly exposing the model to the preprocessed financial data. For each epoch, the model processes all data in mini-batches, calculates the combined reconstruction and KL divergence loss, and updates its weights. The training process aims to find model parameters that allow the encoder to map real data to a meaningful latent space and the decoder to accurately reconstruct data from samples within that space, while keeping the latent distribution close to a prior. The collected loss histories will be used to visualize the training progress.
+
+---
+
+### Section 8: Visualizing VAE Training Progress
+
+Visualizing loss curves provides insights into the model's learning process, indicating convergence, overfitting, or underfitting.
+
+**Code Cell (Implementation): Define VAE Loss Plotting Function**
+```
+Define `plot_vae_losses(reconstruction_losses, kl_divergence_losses, epochs)`:
+-   Generates a line plot showing `reconstruction_losses` over epochs.
+-   Generates a line plot showing `kl_divergence_losses` over epochs.
+-   Adds appropriate titles and labels.
+-   Uses `matplotlib.pyplot` and `seaborn` for aesthetics.
+```
+
+**Code Cell (Execution): Plot VAE Loss Curves**
+```
+Call `plot_vae_losses` with the stored `reconstruction_losses` and `kl_divergence_losses`.
+```
+
+**Markdown Cell (Explanation): Interpreting VAE Loss Curves**
+The VAE loss curves illustrate how well the model is learning. A decreasing reconstruction loss indicates that the decoder is getting better at recreating the input data. A stable or decreasing KL divergence loss shows that the encoder is successfully mapping the input data to a latent distribution that is consistent with the chosen prior. Observing these curves helps determine if the model has converged and whether the balance between reconstruction and regularization is appropriate.
+
+---
+
+### Section 9: Generating Synthetic Data with VAE
+
+After training, the VAE's decoder can be used to generate new synthetic financial data by sampling random vectors from the standard normal distribution (our prior for the latent space) and passing them through the decoder.
+
+**Code Cell (Implementation): Define VAE Synthetic Data Generation Function**
+```
+Define `generate_synthetic_data_vae(model, num_samples, latent_dim, device, scaler, sequence_length)`:
+-   Sets the model to evaluation mode.
+-   Generates `num_samples` random noise vectors from a standard normal distribution of size `latent_dim` using `torch.randn`.
+-   Passes these latent vectors through the VAE decoder.
+-   Inverse transforms the output using the fitted `scaler` to revert to the original data scale.
+-   Returns the generated synthetic data as a NumPy array or Pandas DataFrame.
+```
+
+**Code Cell (Execution): Generate Synthetic Data using VAE**
+```
+Set `num_synthetic_samples = 100`.
+Call `generate_synthetic_data_vae` with the trained VAE model, number of samples, latent dimension, device, scaler, and sequence length.
+Print the shape of the generated synthetic data.
+Display the first 5 rows of the generated synthetic data (after inverse scaling).
+```
+
+**Markdown Cell (Explanation): VAE Synthetic Data Generation**
+The ability to generate new, unseen data is the core purpose of a generative model. For the VAE, this process involves drawing random samples from a simple prior distribution (e.g., a standard normal distribution) in the latent space. These samples are then passed through the trained decoder, which transforms them into synthetic financial time series data that structurally resembles the real data the VAE was trained on. The inverse scaling step ensures the data is presented in its original, interpretable range.
+
+---
+
+### Section 10: Generative Adversarial Networks (GANs) Theory
+
+Generative Adversarial Networks (GANs) employ a game-theoretic approach to synthetic data generation. They consist of two competing neural networks:
+*   **Generator (G):** Takes random noise $z$ as input and attempts to produce synthetic data $G(z)$ that mimics the real data distribution $p_{data}(x)$.
+*   **Discriminator (D):** Takes either real data $x$ or synthetic data $G(z)$ as input and tries to distinguish between the two, outputting a probability that the input is real.
+
+The two networks are trained simultaneously in a minimax game:
+*   The **Discriminator** is trained to maximize its ability to correctly classify real vs. fake data.
+*   The **Generator** is trained to minimize the Discriminator's ability to distinguish its synthetic outputs from real data, effectively trying to "fool" the discriminator.
+
+The value function for this minimax game is given by:
+$$\min_G \max_D V(D, G) = E_{x \sim p_{data}(x)}[\log D(x)] + E_{z \sim p_z(z)}[\log (1 - D(G(z)))]$$
+Here, $D(x)$ is the Discriminator's output for real data $x$, and $D(G(z))$ is its output for synthetic data $G(z)$. The Generator aims to make $D(G(z))$ close to 1 (meaning the Discriminator thinks it's real), while the Discriminator aims to make $D(x)$ close to 1 and $D(G(z))$ close to 0. When the GAN converges, the Generator produces data that is indistinguishable from real data, and the Discriminator outputs $0.5$ for both real and synthetic inputs.
+
+---
+
+### Section 11: Implementing the GAN Architecture
+
+This section describes the neural network architectures for the GAN's Generator and Discriminator, also leveraging recurrent layers for financial time series data.
+
+**Code Cell (Implementation): Define GAN Generator and Discriminator Classes**
+```
+Define `GANGenerator(torch.nn.Module)`:
+-   Takes `latent_dim`, `hidden_dim`, `output_dim`, `sequence_length` as parameters.
+-   Uses `torch.nn.Linear` layers to project latent noise to an initial sequence representation.
+-   Uses `torch.nn.LSTM` or `torch.nn.GRU` layers to generate the synthetic time series.
+-   Applies `torch.nn.Tanh` activation to ensure output is within a specific range (e.g., [-1, 1], matching preprocessed data if using `StandardScaler`).
+
+Define `GANDiscriminator(torch.nn.Module)`:
+-   Takes `input_dim`, `hidden_dim`, `sequence_length` as parameters.
+-   Uses `torch.nn.LSTM` or `torch.nn.GRU` layers to process the input sequence.
+-   Uses `torch.nn.Linear` layers to output a single probability score (e.g., via `torch.nn.Sigmoid` for binary classification).
+```
+
+**Code Cell (Execution): Instantiate the GAN Models**
+```
+Set `latent_dim` for the GAN's input noise (e.g., 64).
+Set `hidden_dim` for recurrent layers (e.g., 128).
+Set `output_dim` to match the number of features (e.g., 5).
+Set `sequence_length` (e.g., 10).
+Instantiate `GANGenerator` and `GANDiscriminator` with these parameters.
+Move both models to the appropriate device (CPU/GPU).
+Print the Generator and Discriminator model structures.
+```
+
+**Markdown Cell (Explanation): GAN Model Architectures**
+The GAN comprises two distinct neural networks: the Generator and the Discriminator. The Generator takes a random noise vector as input and transforms it through linear and recurrent layers to produce a synthetic financial time series. The Discriminator takes a time series (either real or generated) and, using similar recurrent and linear layers, outputs a single value representing the probability that the input is real. The `Tanh` activation in the Generator ensures the generated data is within a specific range, which is critical when matching normalized real data.
+
+---
+
+### Section 12: GAN Loss Functions and Training Loop
+
+The GAN training process involves an alternating optimization strategy, updating the Discriminator and Generator sequentially using their respective loss functions.
+
+**Code Cell (Implementation): Define GAN Loss and Training Epoch Functions**
+```
+Define `gan_discriminator_loss(real_output, fake_output, loss_fn)`:
+-   Calculates loss for real data: `loss_fn(real_output, torch.ones_like(real_output))`.
+-   Calculates loss for fake data: `loss_fn(fake_output, torch.zeros_like(fake_output))`.
+-   Returns the sum of these two losses.
+
+Define `gan_generator_loss(fake_output, loss_fn)`:
+-   Calculates loss for generator: `loss_fn(fake_output, torch.ones_like(fake_output))`.
+-   Returns this loss.
+
+Define `train_gan_epoch(generator, discriminator, dataloader, gen_optimizer, disc_optimizer, loss_fn, device, latent_dim)`:
+-   Sets models to training mode.
+-   Iterates through `dataloader`.
+-   For each batch:
+    -   **Train Discriminator:**
+        -   Gets real data from batch, moves to device.
+        -   Generates fake data using `generator` from random noise.
+        -   Calculates `real_output` and `fake_output` from `discriminator`.
+        -   Calculates `disc_loss` using `gan_discriminator_loss`.
+        -   Performs backward pass and `disc_optimizer.step()`.
+    -   **Train Generator:**
+        -   Generates new fake data from new random noise.
+        -   Calculates `fake_output` from `discriminator`.
+        -   Calculates `gen_loss` using `gan_generator_loss`.
+        -   Performs backward pass and `gen_optimizer.step()`.
+-   Returns average `disc_loss` and `gen_loss` for the epoch.
+```
+
+**Code Cell (Execution): Instantiate GAN Optimizers and Loss Function**
+```
+Define `gen_learning_rate = 2e-4` and `disc_learning_rate = 2e-4`.
+Instantiate `torch.optim.Adam` for the `generator` and `discriminator` separately.
+Define `loss_fn = torch.nn.BCELoss()` (Binary Cross-Entropy Loss).
+```
+
+**Markdown Cell (Explanation): GAN Training Mechanics**
+GAN training is a delicate dance between the Generator and Discriminator. The `BCELoss` is ideal for their binary classification tasks. The Discriminator's goal is to accurately classify real data as 1 and fake data as 0, while the Generator's goal is to produce data that the Discriminator classifies as 1. The separate optimizers allow independent updates, reflecting their adversarial roles. This adversarial process drives both networks to improve, with the Generator striving to produce increasingly realistic data.
+
+---
+
+### Section 13: Training the GAN Model
+
+This section details the GAN training loop over multiple epochs, invoking the `train_gan_epoch` function.
+
+**Code Cell (Implementation): Define GAN Training Orchestration Function**
+```
+Define `train_gan_model(generator, discriminator, train_dataloader, epochs, gen_optimizer, disc_optimizer, loss_fn, device, latent_dim)`:
+-   Initializes empty lists to store `generator_losses` and `discriminator_losses` per epoch.
+-   Loops for `epochs`:
+    -   Calls `train_gan_epoch`.
+    -   Stores the returned `disc_loss` and `gen_loss`.
+    -   Prints epoch number and current losses.
+-   Returns `generator_losses` and `discriminator_losses`.
+```
+
+**Code Cell (Execution): Execute GAN Training**
+```
+Set `epochs = 50`.
+Set `batch_size = 32`.
+Create `TensorDataset` and `DataLoader` from the preprocessed data.
+Call `train_gan_model` with the generator, discriminator, dataloader, epochs, optimizers, loss function, device, and latent dimension.
+Store the returned loss histories.
+```
+
+**Markdown Cell (Explanation): GAN Training Process Overview**
+Training a GAN requires careful orchestration of the Generator and Discriminator updates. In each epoch, both networks are updated, often with the Discriminator being trained slightly more or with specific hyperparameters to ensure it remains a credible adversary. This simplified training loop focuses on demonstrating the core adversarial learning process, where the Generator learns to map random noise to data that can fool the Discriminator, while the Discriminator continuously improves its ability to detect synthetic data.
+
+---
+
+### Section 14: Visualizing GAN Training Progress
+
+Plotting the Generator and Discriminator losses helps monitor the adversarial training process and identify potential issues like mode collapse or training instability.
+
+**Code Cell (Implementation): Define GAN Loss Plotting Function**
+```
+Define `plot_gan_losses(generator_losses, discriminator_losses, epochs)`:
+-   Generates a line plot showing `generator_losses` over epochs.
+-   Generates a line plot showing `discriminator_losses` over epochs.
+-   Adds appropriate titles and labels.
+-   Uses `matplotlib.pyplot` and `seaborn` for aesthetics.
+```
+
+**Code Cell (Execution): Plot GAN Loss Curves**
+```
+Call `plot_gan_losses` with the stored `generator_losses` and `discriminator_losses`.
+```
+
+**Markdown Cell (Explanation): Interpreting GAN Loss Curves**
+Interpreting GAN loss curves is different from standard supervised learning. Ideally, both the Generator and Discriminator losses should fluctuate and eventually stabilize around a certain point, indicating a successful adversarial training equilibrium. If the Generator loss drops significantly while the Discriminator loss remains high, it might suggest the Generator has "won" too easily, potentially leading to mode collapse (generating limited diversity). Conversely, if the Discriminator loss drops to near zero, it might mean the Generator is not improving, and the Discriminator can easily distinguish fake data.
+
+---
+
+### Section 15: Generating Synthetic Data with GAN
+
+Once the GAN is trained, the Generator can produce novel synthetic financial time series simply by transforming random noise.
+
+**Code Cell (Implementation): Define GAN Synthetic Data Generation Function**
+```
+Define `generate_synthetic_data_gan(generator, num_samples, latent_dim, device, scaler, sequence_length)`:
+-   Sets the generator to evaluation mode.
+-   Generates `num_samples` random noise vectors from a standard normal distribution of size `latent_dim` using `torch.randn`.
+-   Passes these noise vectors through the `generator`.
+-   Inverse transforms the output using the fitted `scaler` to revert to the original data scale.
+-   Returns the generated synthetic data as a NumPy array or Pandas DataFrame.
+```
+
+**Code Cell (Execution): Generate Synthetic Data using GAN**
+```
+Set `num_synthetic_samples = 100`.
+Call `generate_synthetic_data_gan` with the trained GAN generator, number of samples, latent dimension, device, scaler, and sequence length.
+Print the shape of the generated synthetic data.
+Display the first 5 rows of the generated synthetic data (after inverse scaling).
+```
+
+**Markdown Cell (Explanation): GAN Synthetic Data Generation**
+Generating synthetic data with a GAN involves feeding random noise into the trained Generator network. The Generator, having learned to transform noise into data that can fool the Discriminator, will produce synthetic financial time series that visually and statistically resemble the real data it was trained on. This demonstrates the Generator's capability to learn and replicate complex data distributions from simple random inputs. The inverse scaling ensures the output is in the original price range.
+
+---
+
+### Section 16: Comparative Analysis: Data Distributions (Histograms/KDEs)
+
+A critical step in validating synthetic data is to compare its statistical properties with those of the original real data. Visualizing feature distributions helps assess how well the models capture the underlying data characteristics.
+
+**Code Cell (Implementation): Define Feature Distribution Plotting Function**
+```
+Define `plot_feature_distributions(real_data, vae_synthetic_data, gan_synthetic_data, feature_names)`:
+-   Creates a figure with subplots, one for each feature in `feature_names`.
+-   For each feature:
+    -   Plots the histogram/KDE of the `real_data` feature using `seaborn.histplot(kde=True)`.
+    -   Overlays the histogram/KDE of the `vae_synthetic_data` feature.
+    -   Overlays the histogram/KDE of the `gan_synthetic_data` feature.
+    -   Adds legend, title (e.g., "Distribution of [Feature Name]"), and labels.
+-   Uses `matplotlib.pyplot` for layout and display.
+```
+
+**Code Cell (Execution): Plot Feature Distributions**
+```
+Extract a subset of the original real data and the generated synthetic data (VAE and GAN) to compare their features.
+Call `plot_feature_distributions` with the relevant real, VAE synthetic, and GAN synthetic data (e.g., final price point of each sequence or aggregated statistics like mean/variance of sequences) and the corresponding feature names (e.g., `Asset_1_Price_End`, `Asset_2_Price_End`).
+```
+
+**Markdown Cell (Explanation): Comparing Data Distributions**
+These distribution plots allow for a visual assessment of how closely the synthetic data generated by VAEs and GANs matches the statistical properties of the real financial data. Overlapping histograms or KDEs indicate that the synthetic data successfully replicates the real data's shape, spread, and central tendency for individual features. Discrepancies might highlight areas where the generative models could be improved, or limitations in their ability to capture certain nuances of the real data distribution.
+
+---
+
+### Section 17: Comparative Analysis: Time Series Visualizations
+
+For time series data, it's essential to visually inspect the generated sequences against real ones to evaluate their realism, temporal dependencies, and overall structure.
+
+**Code Cell (Implementation): Define Time Series Plotting Function**
+```
+Define `plot_synthetic_and_real_time_series(real_data_sequences, vae_synthetic_sequences, gan_synthetic_sequences, num_plots=5, asset_index=0)`:
+-   Creates a figure with `num_plots` subplots.
+-   For each subplot:
+    -   Selects a random real time series for `asset_index`.
+    -   Selects a random VAE synthetic time series for `asset_index`.
+    -   Selects a random GAN synthetic time series for `asset_index`.
+    -   Plots these three time series on the same subplot.
+    -   Adds legend, title (e.g., "Real vs. Synthetic Time Series (Asset X)"), and labels.
+-   Uses `matplotlib.pyplot` for layout and display.
+```
+
+**Code Cell (Execution): Plot Sample Time Series**
+```
+Call `plot_synthetic_and_real_time_series` with the original preprocessed real data sequences, VAE synthetic sequences, and GAN synthetic sequences, specifying `num_plots=5` and `asset_index=0` (e.g., for Asset 1).
+```
+
+**Markdown Cell (Explanation): Visual Assessment of Time Series Realism**
+Visual inspection of time series plots provides an intuitive understanding of the generative models' performance. Realistic synthetic time series should exhibit similar trends, volatility patterns, and overall shape as the real financial data. This comparison helps identify if the models are capturing the underlying temporal dynamics, or if the generated data appears noisy, overly smooth, or lacks key characteristics found in real market movements.
+
+---
+
+### Section 18: Comparative Analysis: Quantitative Metrics
+
+Beyond visual comparisons, quantitative metrics offer a more rigorous assessment of synthetic data quality. Statistical tests can compare distributions, while simple metrics like mean and variance provide a quick numerical overview.
+
+**Code Cell (Implementation): Define Statistical Metrics and K-S Test Functions**
+```
+Define `calculate_statistical_metrics(data_dict, feature_names)`:
+-   Takes a dictionary mapping data labels (e.g., 'Real', 'VAE', 'GAN') to data arrays/DataFrames.
+-   Calculates mean and standard deviation for each feature in `feature_names` for each dataset.
+-   Prints these statistics in a clear, tabular format.
+
+Define `perform_kolmogorov_smirnov_test(real_data, synthetic_data, feature_names)`:
+-   Iterates through `feature_names`.
+-   For each feature, performs a Kolmogorov-Smirnov (K-S) test between the `real_data` feature and the `synthetic_data` feature using `scipy.stats.ks_2samp`.
+-   Prints the K-S statistic and p-value for each comparison.
+-   Explains the interpretation of p-values (e.g., high p-value suggests failure to reject null hypothesis that distributions are similar).
+```
+
+**Code Cell (Execution): Calculate and Display Quantitative Metrics**
+```
+Create a dictionary `data_to_compare` containing the real, VAE synthetic, and GAN synthetic data (e.g., the flattened data or specific summary statistics per sequence).
+Call `calculate_statistical_metrics` with this dictionary and relevant `feature_names`.
+Call `perform_kolmogorov_smirnov_test` to compare real data with VAE synthetic data for each feature.
+Call `perform_kolmogorov_smirnov_test` to compare real data with GAN synthetic data for each feature.
+```
+
+**Markdown Cell (Explanation): Interpreting Quantitative Comparisons**
+Quantitative metrics provide a numerical basis for comparing real and synthetic data.
+*   **Mean and Standard Deviation:** These basic statistics offer a first glance at whether the synthetic data preserves the central tendency and variability of the real data.
+*   **Kolmogorov-Smirnov (K-S) Test:** This non-parametric test quantifies the difference between the empirical cumulative distribution functions of two samples. A high p-value (typically $p > 0.05$) suggests that we cannot reject the null hypothesis that the two samples are drawn from the same underlying distribution, indicating good statistical similarity between the real and synthetic data. Lower p-values indicate a significant difference.
+
+These metrics complement visual analysis, offering a more objective measure of how well VAEs and GANs capture the statistical essence of financial data.
+
+---
+
+### Section 19: Adjusting Latent Variables (VAE Focus)
+
+One of the strengths of VAEs is their interpretable latent space. By systematically varying specific dimensions of a latent vector, we can observe how these changes influence the characteristics of the generated synthetic data. This demonstrates the VAE's ability to learn disentangled representations of the data.
+
+**Code Cell (Implementation): Define Function for Generating Data with Adjusted Latent Variables**
+```
+Define `generate_with_adjusted_latent(model, original_latent_sample, latent_dim_to_adjust, adjustment_range, num_steps, device, scaler, sequence_length)`:
+-   Takes an `original_latent_sample` (e.g., mean of latent space or a random sample).
+-   Creates multiple copies of this `original_latent_sample`.
+-   For each copy, perturbs the `latent_dim_to_adjust`-th dimension across `num_steps` within the `adjustment_range`.
+-   Passes these adjusted latent vectors through the VAE decoder.
+-   Inverse transforms the output using the `scaler`.
+-   Returns a list of generated synthetic time series, corresponding to each adjustment step.
+```
+
+**Code Cell (Execution): Generate and Plot Synthetic Data with Latent Variable Adjustments**
+```
+Generate a reference `original_latent_sample` (e.g., a zero vector or the mean of the latent space from the trained VAE).
+Choose `latent_dim_to_adjust = 0` (the first latent dimension).
+Set `adjustment_range = (-3, 3)` and `num_steps = 10`.
+Call `generate_with_adjusted_latent` to get synthetic data for varying the chosen latent dimension.
+Plot these generated time series, showing how changing one latent variable affects the output. For simplicity, plot only Asset 1's price.
+```
+
+**Markdown Cell (Explanation): Impact of Latent Variable Manipulation**
+Manipulating the VAE's latent variables offers a powerful way to understand the underlying factors the model has learned. By systematically changing one dimension of the latent vector while keeping others constant, we can observe how a specific "feature" of the synthetic data changes. For financial data, this could correspond to underlying market factors like volatility, trend, or correlation. This interactive exploration highlights the VAE's capacity for controlled data generation and could be useful for scenario analysis or generating data with specific characteristics.
+
+---
+
+### Section 20: Conclusion and Financial Applications
+
+This section summarizes the key findings from implementing and comparing VAEs and GANs for synthetic financial data generation. It reiterates their practical applications in finance and discusses future potential.
+
+---
+```
